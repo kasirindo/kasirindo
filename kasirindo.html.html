@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kasir Indo - Premium POS</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        [x-cloak] { display: none !important; }
+        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        body { font-family: 'Plus Jakarta Sans', 'Inter', sans-serif; letter-spacing: -0.01em; -webkit-font-smoothing: antialiased; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Performance Optimized Animations */
+        .premium-card {
+            background: #ffffff;
+            border: 1px solid rgba(241, 245, 249, 1);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.02), 0 4px 6px -2px rgba(0, 0, 0, 0.01);
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+            will-change: transform;
+        }
+        .premium-card:active { transform: scale(0.98); }
+        
+        .bg-animated {
+            background: linear-gradient(-45deg, #4f46e5, #7c3aed, #2563eb, #0ea5e9);
+            background-size: 400% 400%;
+            animation: gradientMove 15s ease infinite;
+            will-change: background-position;
+            transform: translate3d(0,0,0);
+        }
+
+        @keyframes gradientMove {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .floating-shape {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            filter: blur(40px);
+            z-index: 0;
+            animation: float 20s infinite alternate;
+            will-change: transform;
+        }
+
+        @keyframes float {
+            0% { transform: translate3d(0, 0, 0) scale(1); }
+            100% { transform: translate3d(100px, 50px, 0) scale(1.5); }
+        }
+        
+        @media print {
+            body { background: white !important; }
+            body * { visibility: hidden; }
+            #receipt-print, #receipt-print * { visibility: visible; }
+            #receipt-print { 
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 58mm; 
+                padding: 0; 
+                margin: 0;
+                display: block !important;
+            }
+            @page { margin: 0; size: auto; }
+            aside, header, nav, button, .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900" x-data="posApp()" :class="mobileCartOpen ? 'overflow-hidden' : ''">
+
+    <!-- Login/Auth Screen -->
+    <template x-if="!isLoggedIn">
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-animated px-4 overflow-hidden">
+            <!-- Decorative Shapes -->
+            <div class="floating-shape w-96 h-96 -top-20 -left-20" style="animation-delay: 0s;"></div>
+            <div class="floating-shape w-80 h-80 -bottom-20 -right-20" style="animation-delay: -5s;"></div>
+            <div class="floating-shape w-64 h-64 top-1/2 left-1/4" style="animation-delay: -10s;"></div>
+
+            <div class="w-full max-w-md bg-white/95 backdrop-blur-xl rounded-[40px] p-10 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] relative z-10 border border-white/20">
+                <div class="text-center mb-8">
+                    <div class="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-store text-3xl"></i>
+                    </div>
+                    <h1 class="text-3xl font-bold text-slate-800 tracking-tight">Kasir Indo</h1>
+                    <p class="text-slate-500 mt-2" x-text="authMode === 'login' ? 'Selamat datang kembali' : 'Buat akun baru'"></p>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Username</label>
+                        <input type="text" x-model="authForm.username" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition" placeholder="Username">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                        <input type="password" x-model="authForm.password" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition" placeholder="••••••••">
+                    </div>
+                    
+                    <button @click="handleAuth" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 active:scale-95 transition-transform">
+                        <span x-text="authMode === 'login' ? 'Masuk Sekarang' : 'Daftar Akun'"></span>
+                    </button>
+
+                    <div class="text-center mt-6">
+                        <button @click="authMode = (authMode === 'login' ? 'register' : 'login')" class="text-indigo-600 font-semibold text-sm">
+                            <span x-text="authMode === 'login' ? 'Belum punya akun? Daftar' : 'Sudah punya akun? Login'"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Main App Container -->
+    <div x-show="isLoggedIn" x-cloak class="min-h-screen flex flex-col pb-20 lg:pb-0 lg:pl-72">
+        
+        <!-- Sidebar Desktop -->
+        <aside class="hidden lg:flex flex-col w-72 bg-slate-900 text-slate-300 border-r border-slate-800 fixed inset-y-0 left-0 z-40">
+            <div class="p-8">
+                <div class="flex items-center gap-4 mb-12">
+                    <div class="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center overflow-hidden shadow-xl shadow-indigo-500/40 border border-white/10">
+                        <template x-if="settings.storeLogo">
+                            <img :src="settings.storeLogo" class="w-full h-full object-cover">
+                        </template>
+                        <template x-if="!settings.storeLogo">
+                            <i class="fas fa-shop text-xl"></i>
+                        </template>
+                    </div>
+                    <div>
+                        <span class="block font-black text-white text-lg tracking-tighter truncate w-32" x-text="settings.storeName"></span>
+                        <span class="text-[9px] uppercase tracking-[0.2em] text-indigo-400 font-black">Official Store</span>
+                    </div>
+                </div>
+                
+                <nav class="space-y-1.5">
+                    <div class="pb-2 text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-5">Menu Utama</div>
+                    <template x-for="item in menuItems">
+                        <button @click="activeTab = item.id" 
+                                :class="activeTab === item.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/40' : 'hover:bg-white/5 hover:text-white text-slate-400'"
+                                class="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all duration-300 font-bold text-xs uppercase tracking-wider">
+                            <i :class="item.icon" class="text-base"></i>
+                            <span x-text="item.label"></span>
+                        </button>
+                    </template>
+                    
+                    <div class="pt-6 pb-2 text-[10px] font-bold text-slate-600 uppercase tracking-[0.2em] px-5">Profil & Pengaturan</div>
+                    <button @click="activeTab = 'settings'" 
+                            :class="activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/40' : 'hover:bg-white/5 hover:text-white text-slate-400'"
+                            class="w-full flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all duration-300 font-bold text-xs uppercase tracking-wider">
+                        <i class="fas fa-id-card-clip text-base"></i>
+                        <span>Biodata Toko</span>
+                    </button>
+                </nav>
+            </div>
+            
+            <div class="mt-auto p-6 border-t border-slate-100">
+                <button @click="logout" class="flex items-center gap-3 text-red-500 font-medium px-4 py-2 hover:bg-red-50 rounded-xl w-full transition">
+                    <i class="fas fa-sign-out-alt"></i> Keluar
+                </button>
+            </div>
+        </aside>
+
+        <!-- Top Bar -->
+        <header class="h-20 lg:h-24 bg-white/90 backdrop-blur-2xl border-b border-slate-100 flex items-center justify-between px-8 sticky top-0 z-30">
+            <div class="flex items-center gap-4">
+                <div class="lg:hidden w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center" @click="activeTab = 'settings'">
+                     <template x-if="settings.storeLogo">
+                        <img :src="settings.storeLogo" class="w-full h-full object-cover rounded-xl">
+                    </template>
+                    <template x-if="!settings.storeLogo">
+                        <i class="fas fa-shop"></i>
+                    </template>
+                </div>
+                <div>
+                    <h2 class="text-xl lg:text-2xl font-black text-slate-900 tracking-tighter" x-text="activeTab === 'settings' ? 'Dashboard Profil' : (menuItems.find(m => m.id === activeTab)?.label || 'Menu')"></h2>
+                    <p class="text-[10px] lg:text-xs text-slate-400 font-bold uppercase tracking-widest mt-0.5">
+                        PIC: <span class="text-indigo-600" x-text="settings.ownerName || currentUser.username"></span>
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4 lg:gap-6">
+                <div class="text-right hidden md:block">
+                    <p class="text-xs font-black text-slate-900 uppercase tracking-widest" x-text="settings.storeName"></p>
+                    <div class="flex items-center justify-end gap-1.5 mt-0.5">
+                        <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                        <span class="text-[9px] font-black text-emerald-500 uppercase">System Active</span>
+                    </div>
+                </div>
+                <div @click="activeTab = 'settings'" class="w-10 h-10 lg:w-14 lg:h-14 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center text-slate-800 font-black border border-slate-200 shadow-inner overflow-hidden cursor-pointer group">
+                    <template x-if="settings.storeLogo">
+                        <img :src="settings.storeLogo" class="w-full h-full object-cover group-hover:scale-110 transition-transform">
+                    </template>
+                    <template x-if="!settings.storeLogo">
+                        <span class="text-lg lg:text-xl" x-text="settings.storeName.charAt(0).toUpperCase()"></span>
+                    </template>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Scroll Area -->
+        <main class="flex-1 p-4 lg:p-8 overflow-y-auto">
+            
+            <!-- Tab: POS / Jualan -->
+            <div x-show="activeTab === 'pos'" class="space-y-6 relative">
+                <!-- Mobile Floating Cart Button -->
+                <button @click="mobileCartOpen = true" class="lg:hidden fixed bottom-24 right-6 w-16 h-16 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center z-40 active:scale-90 transition-transform">
+                    <i class="fas fa-shopping-bag text-xl"></i>
+                    <span x-show="cart.length > 0" class="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white" x-text="cart.length"></span>
+                </button>
+
+                <div class="flex flex-col lg:flex-row gap-6">
+                    <!-- Products Grid -->
+                    <div class="flex-1 space-y-4">
+                        <div class="relative">
+                            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" x-model.debounce.200ms="searchQuery" placeholder="Cari nama barang atau barcode..." class="w-full pl-12 pr-4 py-3 rounded-2xl bg-white border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition shadow-sm">
+                        </div>
+                        
+                        <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+                            <template x-for="product in filteredProducts" :key="product.id">
+                                <div @click="addToCart(product)" class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition cursor-pointer group active:scale-95">
+                                    <div class="w-full aspect-square bg-slate-50 rounded-xl mb-3 flex items-center justify-center overflow-hidden">
+                                        <template x-if="product.image">
+                                            <img :src="product.image" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                                        </template>
+                                        <template x-if="!product.image">
+                                            <i class="fas fa-box text-3xl text-slate-200"></i>
+                                        </template>
+                                    </div>
+                                    <h3 class="font-bold text-slate-800 truncate" x-text="product.name"></h3>
+                                    <p class="text-indigo-600 font-bold mt-1" x-text="formatIDR(product.price)"></p>
+                                    <div class="flex justify-between items-center mt-2 text-xs">
+                                        <span class="text-slate-500">Stok: <span x-text="product.stock" :class="product.stock <= 5 ? 'text-red-500 font-bold' : ''"></span></span>
+                                        <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition shadow-lg shadow-indigo-100">
+                                            <i class="fas fa-plus"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Cart / Billing (SISI KANAN) -->
+                    <!-- Desktop Sidebar & Mobile Slide-over Overlay -->
+                    <div 
+                        class="fixed inset-0 z-[50] lg:relative lg:inset-auto lg:block lg:w-96"
+                        x-show="mobileCartOpen || window.innerWidth >= 1024"
+                        x-transition:enter="transition ease-out duration-300"
+                        x-transition:enter-start="translate-x-full lg:translate-x-0"
+                        x-transition:enter-end="translate-x-0"
+                        x-transition:leave="transition ease-in duration-300"
+                        x-transition:leave-start="translate-x-0"
+                        x-transition:leave-end="translate-x-full lg:translate-x-0"
+                    >
+                        <!-- Mobile Backdrop -->
+                        <div @click="mobileCartOpen = false" class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm lg:hidden"></div>
+
+                        <!-- Cart Container (Fixed to the Right on Mobile) -->
+                        <div class="absolute right-0 top-0 bottom-0 w-80 sm:w-96 bg-white shadow-2xl lg:shadow-none lg:static lg:w-full lg:bg-transparent flex flex-col h-full lg:h-[calc(100vh-160px)] lg:sticky lg:top-24">
+                            <div class="bg-white rounded-none lg:rounded-3xl border-l lg:border border-slate-200 flex flex-col h-full overflow-hidden">
+                                <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-white">
+                                    <div class="flex items-center gap-2">
+                                        <i class="fas fa-shopping-cart text-indigo-600"></i>
+                                        <h3 class="font-bold text-lg">Keranjang</h3>
+                                    </div>
+                                    <div class="flex items-center gap-4">
+                                        <button @click="cart = []" class="text-slate-400 hover:text-red-500 transition text-sm">Reset</button>
+                                        <button @click="mobileCartOpen = false" class="lg:hidden w-8 h-8 flex items-center justify-center bg-slate-100 rounded-full text-slate-500">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
+                                    <template x-if="cart.length === 0">
+                                        <div class="h-full flex flex-col items-center justify-center text-slate-400 opacity-50 py-10">
+                                            <div class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                                                <i class="fas fa-shopping-basket text-4xl"></i>
+                                            </div>
+                                            <p class="font-medium">Belum ada barang</p>
+                                        </div>
+                                    </template>
+                                    <template x-for="(item, index) in cart" :key="index">
+                                        <div class="flex gap-3 bg-slate-50/50 p-3 rounded-2xl border border-slate-100 group transition hover:border-indigo-100">
+                                            <div class="w-14 h-14 bg-white rounded-xl flex items-center justify-center text-slate-400 overflow-hidden border border-slate-100">
+                                                <img x-show="item.image" :src="item.image" class="w-full h-full object-cover">
+                                                <i x-show="!item.image" class="fas fa-box text-sm"></i>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <h4 class="font-bold text-slate-800 text-sm truncate" x-text="item.name"></h4>
+                                                <p class="text-xs text-indigo-600 font-bold" x-text="formatIDR(item.price)"></p>
+                                                <div class="flex items-center gap-2 mt-2">
+                                                    <button @click="updateCartQty(index, -1)" class="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-xs hover:bg-indigo-50 hover:border-indigo-200 transition">-</button>
+                                                    <span class="text-sm font-bold w-6 text-center" x-text="item.qty"></span>
+                                                    <button @click="updateCartQty(index, 1)" class="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-xs hover:bg-indigo-50 hover:border-indigo-200 transition">+</button>
+                                                </div>
+                                            </div>
+                                            <button @click="removeFromCart(index)" class="text-slate-300 hover:text-red-500 h-fit p-1">
+                                                <i class="fas fa-times-circle"></i>
+                                            </button>
+                                        </div>
+                                    </template>
+                                </div>
+
+                                <div class="p-6 bg-slate-50/80 backdrop-blur-sm border-t border-slate-200 space-y-3">
+                                    <div class="flex justify-between text-slate-500 text-sm">
+                                        <span>Item</span>
+                                        <span x-text="cart.reduce((a, b) => a + b.qty, 0)"></span>
+                                    </div>
+                                    <div class="flex justify-between text-xl font-black text-slate-900 pt-1">
+                                        <span>Total</span>
+                                        <span x-text="formatIDR(cartTotal)"></span>
+                                    </div>
+                                    <button @click="openCheckout" :disabled="cart.length === 0" class="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 active:scale-95 transition-transform disabled:opacity-50 disabled:active:scale-100 mt-2">
+                                        Checkout Sekarang
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Inventory -->
+            <div x-show="activeTab === 'inventory'" class="space-y-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h3 class="text-2xl font-bold text-slate-800">Manajemen Stok</h3>
+                        <p class="text-slate-500">Kelola barang dan persediaan toko Anda secara real-time</p>
+                    </div>
+                    <button @click="openProductModal()" class="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-100 active:scale-95 transition w-full md:w-auto">
+                        <i class="fas fa-plus"></i> Tambah Barang Baru
+                    </button>
+                </div>
+
+                <!-- Inventory Search Bar -->
+                <div class="relative">
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" x-model.debounce.200ms="inventorySearch" placeholder="Cari barang di gudang..." class="w-full pl-12 pr-4 py-3 rounded-2xl bg-white border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition shadow-sm">
+                </div>
+
+                <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm overflow-x-auto">
+                    <table class="w-full text-left min-w-[600px]">
+                        <thead class="bg-slate-50 border-b border-slate-100">
+                            <tr>
+                                <th class="px-6 py-4 font-bold text-slate-600 uppercase text-[10px] tracking-wider">Produk</th>
+                                <th class="px-6 py-4 font-bold text-slate-600 uppercase text-[10px] tracking-wider text-center">Update Stok</th>
+                                <th class="px-6 py-4 font-bold text-slate-600 uppercase text-[10px] tracking-wider text-center">Status</th>
+                                <th class="px-6 py-4 font-bold text-slate-600 uppercase text-[10px] tracking-wider text-right">Harga Jual</th>
+                                <th class="px-6 py-4 font-bold text-slate-600 uppercase text-[10px] tracking-wider text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <template x-for="product in filteredInventory" :key="product.id">
+                                <tr class="hover:bg-slate-50/50 transition">
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-100">
+                                                <img x-show="product.image" :src="product.image" class="w-full h-full object-cover">
+                                                <i x-show="!product.image" class="fas fa-box text-slate-300"></i>
+                                            </div>
+                                            <div>
+                                                <p class="font-bold text-slate-800 leading-tight" x-text="product.name"></p>
+                                                <p class="text-[10px] text-slate-400" x-text="'HPP: ' + formatIDR(product.costPrice || 0)"></p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center justify-center gap-3">
+                                            <button @click="quickUpdateStock(product.id, -1)" class="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-red-50 hover:text-red-500 transition">-</button>
+                                            <span class="font-black text-slate-700 w-8 text-center" x-text="product.stock"></span>
+                                            <button @click="quickUpdateStock(product.id, 1)" class="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-emerald-50 hover:text-emerald-500 transition">+</button>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 text-center">
+                                        <span x-show="product.stock <= 5" class="px-2 py-1 bg-red-100 text-red-600 text-[10px] font-bold rounded-md uppercase">Stok Menipis</span>
+                                        <span x-show="product.stock > 5" class="px-2 py-1 bg-emerald-100 text-emerald-600 text-[10px] font-bold rounded-md uppercase">Aman</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right font-bold text-slate-800" x-text="formatIDR(product.price)"></td>
+                                    <td class="px-6 py-4 text-center">
+                                        <div class="flex justify-center gap-1">
+                                            <button @click="openProductModal(product)" class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition" title="Edit Detail"><i class="fas fa-pen-to-square"></i></button>
+                                            <button @click="deleteProduct(product.id)" class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition" title="Hapus"><i class="fas fa-trash-can"></i></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab: History -->
+            <div x-show="activeTab === 'history'" class="space-y-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h3 class="text-2xl font-bold text-slate-800">Riwayat Transaksi</h3>
+                        <p class="text-slate-500">Data semua penjualan yang telah dilakukan</p>
+                    </div>
+                    <button @click="confirmClearHistory" class="text-red-500 hover:bg-red-50 px-4 py-2 rounded-xl border border-red-100 font-medium transition flex items-center gap-2">
+                        <i class="fas fa-trash text-sm"></i> Hapus Riwayat
+                    </button>
+                </div>
+
+                <div class="space-y-4">
+                    <template x-for="trx in history" :key="trx.id">
+                        <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center">
+                                    <i class="fas fa-receipt text-xl"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-slate-800 text-sm" x-text="trx.id"></h4>
+                                    <p class="text-xs text-slate-400" x-text="formatDate(trx.date)"></p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex-1 px-0 md:px-6">
+                                <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Item</p>
+                                <p class="text-xs text-slate-700 truncate max-w-xs" x-text="trx.items.map(i => i.name + ' (x' + i.qty + ')').join(', ')"></p>
+                            </div>
+
+                            <div class="flex items-center gap-6">
+                                <div class="text-right">
+                                    <p class="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Total</p>
+                                    <p class="text-lg font-black text-indigo-600" x-text="formatIDR(trx.total)"></p>
+                                </div>
+                                <button @click="printReceipt(trx)" class="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition">
+                                    <i class="fas fa-print"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- Tab: Analytics -->
+            <div x-show="activeTab === 'analytics'" class="space-y-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="premium-card p-8 rounded-[32px] relative overflow-hidden">
+                        <div class="absolute -right-4 -top-4 w-24 h-24 bg-indigo-50 rounded-full opacity-50"></div>
+                        <div class="flex items-center gap-4 mb-6 relative">
+                            <div class="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200"><i class="fas fa-chart-line text-lg"></i></div>
+                            <h4 class="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Total Pendapatan</h4>
+                        </div>
+                        <h2 class="text-3xl font-black text-slate-900 tracking-tighter" x-text="formatIDR(analytics.revenue)"></h2>
+                        <div class="mt-4 flex items-center gap-2 text-emerald-500 text-[10px] font-bold">
+                            <i class="fas fa-arrow-trend-up"></i> TERUPDATE SECARA REAL-TIME
+                        </div>
+                    </div>
+
+                    <div class="premium-card p-8 rounded-[32px] relative overflow-hidden border-emerald-50">
+                        <div class="absolute -right-4 -top-4 w-24 h-24 bg-emerald-50 rounded-full opacity-50"></div>
+                        <div class="flex items-center gap-4 mb-6 relative">
+                            <div class="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-200"><i class="fas fa-hand-holding-dollar text-lg"></i></div>
+                            <h4 class="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Total Laba Kotor</h4>
+                        </div>
+                        <h2 class="text-3xl font-black text-slate-900 tracking-tighter" x-text="formatIDR(analytics.grossProfit)"></h2>
+                        <div class="mt-4 flex items-center gap-2 text-emerald-500 text-[10px] font-bold">
+                            <i class="fas fa-circle-check"></i> MARGIN PROFIT SEHAT
+                        </div>
+                    </div>
+
+                    <div class="premium-card p-8 rounded-[32px] relative overflow-hidden bg-slate-900 border-none">
+                        <div class="absolute -right-4 -top-4 w-24 h-24 bg-white/5 rounded-full"></div>
+                        <div class="flex items-center gap-4 mb-6 relative">
+                            <div class="w-12 h-12 rounded-2xl bg-white/10 text-white flex items-center justify-center border border-white/10"><i class="fas fa-wallet text-lg"></i></div>
+                            <h4 class="font-bold text-slate-400 uppercase text-[10px] tracking-widest">Estimasi Laba Bersih</h4>
+                        </div>
+                        <h2 class="text-3xl font-black text-white tracking-tighter" x-text="formatIDR(analytics.netProfit)"></h2>
+                        <p class="text-[9px] text-slate-500 mt-4 leading-relaxed italic">Dihitung otomatis setelah estimasi biaya operasional 10%</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="premium-card p-10 rounded-[40px]">
+                        <div class="flex items-center justify-between mb-8">
+                            <h4 class="font-black text-slate-900 text-xl tracking-tighter flex items-center gap-3">
+                                <span class="w-2 h-8 bg-indigo-600 rounded-full"></span> Produk Terlaris
+                            </h4>
+                            <span class="text-[10px] font-black text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full uppercase tracking-wider">Top Performers</span>
+                        </div>
+                        <div class="space-y-4">
+                            <template x-for="(item, index) in analytics.topProducts" :key="index">
+                                <div class="group flex items-center justify-between p-5 hover:bg-slate-50 rounded-[24px] transition-all border border-transparent hover:border-slate-100">
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center font-black text-slate-400 group-hover:bg-white group-hover:text-indigo-600 transition-colors" x-text="index + 1"></div>
+                                        <div>
+                                            <span class="block font-bold text-slate-800" x-text="item.name"></span>
+                                            <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Inventory Item</span>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="block text-lg font-black text-indigo-600" x-text="item.totalQty"></span>
+                                        <span class="text-[10px] text-slate-400 font-bold">TERJUAL</span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    
+                    <div class="premium-card p-10 rounded-[40px] flex flex-col justify-center items-center text-center bg-indigo-50/30 border-dashed border-2 border-indigo-100">
+                        <div class="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-xl mb-6">
+                            <i class="fas fa-award text-4xl text-indigo-600"></i>
+                        </div>
+                        <h4 class="font-black text-slate-900 text-xl mb-3">Analisis Strategis</h4>
+                        <p class="text-slate-500 text-sm leading-relaxed max-w-xs">
+                            Gunakan data di atas untuk merencanakan restok barang dan promosi. Pertahankan momentum penjualan Anda!
+                        </p>
+                        <button @click="activeTab = 'pos'" class="mt-8 px-8 py-3 bg-slate-900 text-white text-xs font-bold rounded-full hover:bg-indigo-600 transition-all active:scale-95">
+                            BUAT TRANSAKSI BARU
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Settings (Biodata Profil Toko Premium) -->
+            <div x-show="activeTab === 'settings'" class="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                
+                <!-- Hero Profile Section -->
+                <div class="bg-slate-900 rounded-[40px] p-8 lg:p-12 text-white relative overflow-hidden shadow-2xl shadow-indigo-900/20">
+                    <div class="absolute top-0 right-0 w-64 h-64 bg-indigo-600/20 blur-[100px] rounded-full"></div>
+                    <div class="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                        <div class="relative group">
+                            <div class="w-32 h-32 lg:w-40 lg:h-40 rounded-[32px] bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center overflow-hidden shadow-2xl">
+                                <template x-if="settings.storeLogo">
+                                    <img :src="settings.storeLogo" class="w-full h-full object-cover">
+                                </template>
+                                <template x-if="!settings.storeLogo">
+                                    <i class="fas fa-shop text-5xl text-white/20"></i>
+                                </template>
+                            </div>
+                            <div class="absolute -bottom-2 -right-2 w-10 h-10 bg-indigo-500 rounded-2xl flex items-center justify-center border-4 border-slate-900 text-white text-xs">
+                                <i class="fas fa-camera"></i>
+                            </div>
+                        </div>
+                        <div class="text-center md:text-left flex-1">
+                            <div class="flex flex-col md:flex-row md:items-center gap-3 mb-2">
+                                <h3 class="text-3xl lg:text-4xl font-black tracking-tighter" x-text="settings.storeName"></h3>
+                                <span class="bg-indigo-500/20 text-indigo-300 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-indigo-500/30 w-fit mx-auto md:mx-0">Verified Business</span>
+                            </div>
+                            <p class="text-slate-400 text-sm font-medium mb-6 flex items-center justify-center md:justify-start gap-2">
+                                <i class="fas fa-user-tie text-indigo-400"></i>
+                                Penanggung Jawab: <span class="text-white" x-text="settings.ownerName || 'Belum Diatur'"></span>
+                            </p>
+                            <div class="flex flex-wrap justify-center md:justify-start gap-4">
+                                <div class="bg-white/5 px-4 py-2 rounded-xl border border-white/5 text-xs">
+                                    <span class="block text-slate-500 font-bold uppercase text-[8px] mb-1">Status Sistem</span>
+                                    <span class="text-emerald-400 font-black">● PREMIUM ACTIVE</span>
+                                </div>
+                                <div class="bg-white/5 px-4 py-2 rounded-xl border border-white/5 text-xs">
+                                    <span class="block text-slate-500 font-bold uppercase text-[8px] mb-1">Total Produk</span>
+                                    <span class="text-white font-black" x-text="products.length + ' Items'"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- Biodata Form -->
+                    <div class="lg:col-span-2 space-y-6">
+                        <div class="bg-white p-8 lg:p-10 rounded-[40px] border border-slate-200 shadow-sm">
+                            <h4 class="text-xl font-black text-slate-900 mb-8 flex items-center gap-3">
+                                <span class="w-1.5 h-6 bg-indigo-600 rounded-full"></span>
+                                Sunting Biodata Toko
+                            </h4>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="md:col-span-2">
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nama Entitas Bisnis</label>
+                                    <div class="relative">
+                                        <i class="fas fa-store absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
+                                        <input type="text" x-model="settings.storeName" class="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 border border-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition font-bold text-slate-700" placeholder="Contoh: Kedai Kopi Indo">
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nama Lengkap Owner</label>
+                                    <div class="relative">
+                                        <i class="fas fa-user absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
+                                        <input type="text" x-model="settings.ownerName" class="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 border border-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition font-bold text-slate-700" placeholder="Nama Anda">
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">WhatsApp / Phone</label>
+                                    <div class="relative">
+                                        <i class="fas fa-phone absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
+                                        <input type="text" x-model="settings.storePhone" class="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 border border-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition font-bold text-slate-700" placeholder="0812-xxxx-xxxx">
+                                    </div>
+                                </div>
+
+                                <div class="md:col-span-2">
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Alamat Fisik Operasional</label>
+                                    <div class="relative">
+                                        <i class="fas fa-location-dot absolute left-4 top-4 text-slate-300"></i>
+                                        <textarea x-model="settings.storeAddress" rows="3" class="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 border border-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition font-bold text-slate-700" placeholder="Alamat lengkap lokasi toko..."></textarea>
+                                    </div>
+                                </div>
+
+                                <div class="md:col-span-2">
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Branding: URL Logo Toko</label>
+                                    <div class="relative">
+                                        <i class="fas fa-link absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
+                                        <input type="text" x-model="settings.storeLogo" class="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 border border-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition font-bold text-slate-700" placeholder="https://domain.com/logo.png">
+                                    </div>
+                                    <p class="text-[9px] text-slate-400 mt-2 italic">*Gunakan link gambar langsung (.png/.jpg) untuk hasil terbaik.</p>
+                                </div>
+
+                                <div class="md:col-span-2">
+                                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Pesan Penutup (Struk)</label>
+                                    <div class="relative">
+                                        <i class="fas fa-quote-left absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"></i>
+                                        <input type="text" x-model="settings.receiptFooter" class="w-full pl-12 pr-4 py-4 rounded-2xl bg-slate-50 border border-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition font-bold text-slate-700" placeholder="Terima Kasih, Selamat Belanja Kembali!">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button @click="saveSettings" class="w-full mt-10 bg-indigo-600 text-white py-5 rounded-[24px] font-black text-sm uppercase tracking-[0.2em] shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 active:scale-[0.98] transition-all">
+                                Simpan Seluruh Perubahan
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Side Profile Info -->
+                    <div class="space-y-6">
+                        <div class="bg-white p-8 rounded-[40px] border border-slate-200 shadow-sm text-center">
+                            <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Preview Digital Struk</h4>
+                            <div class="bg-slate-50 p-6 rounded-3xl border border-dashed border-slate-200 font-mono text-[9px] text-slate-500 mx-auto max-w-[240px] text-left">
+                                <div class="text-center mb-4">
+                                    <img x-show="settings.storeLogo" :src="settings.storeLogo" class="w-10 h-10 mx-auto mb-2 rounded-full object-cover">
+                                    <p class="font-black text-slate-900 uppercase" x-text="settings.storeName"></p>
+                                    <p x-text="settings.storeAddress"></p>
+                                </div>
+                                <div class="border-b border-dashed border-slate-200 my-2"></div>
+                                <div class="flex justify-between"><span>CONTOH ITEM</span><span>Rp 50.000</span></div>
+                                <div class="border-b border-dashed border-slate-200 my-2"></div>
+                                <div class="flex justify-between font-bold text-slate-800"><span>TOTAL</span><span>Rp 50.000</span></div>
+                                <div class="text-center mt-4 italic" x-text="settings.receiptFooter"></div>
+                            </div>
+                        </div>
+
+                        <div class="bg-indigo-50 p-8 rounded-[40px] border border-indigo-100">
+                            <div class="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-indigo-600 mb-4 shadow-sm">
+                                <i class="fas fa-shield-check text-xl"></i>
+                            </div>
+                            <h4 class="font-black text-slate-900 text-sm mb-2">Keamanan Data</h4>
+                            <p class="text-slate-500 text-[11px] leading-relaxed">
+                                Biodata toko Anda disimpan secara lokal dan aman di perangkat ini. Pastikan informasi akurat untuk pencetakan struk yang valid.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Bottom Navigation Mobile -->
+        <nav class="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around items-center h-20 px-4 z-40">
+            <template x-for="item in menuItems">
+                <button @click="activeTab = item.id" 
+                        :class="activeTab === item.id ? 'text-indigo-600' : 'text-slate-400'"
+                        class="flex flex-col items-center gap-1 transition">
+                    <i :class="item.icon" class="text-xl"></i>
+                    <span class="text-[10px] font-bold" x-text="item.label"></span>
+                </button>
+            </template>
+            <button @click="logout" class="flex flex-col items-center gap-1 text-red-400">
+                <i class="fas fa-sign-out-alt text-xl"></i>
+                <span class="text-[10px] font-bold">Keluar</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- MODAL: Product (Add/Edit) -->
+    <div x-show="productModal.show" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div @click="productModal.show = false" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
+        <div class="relative bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in duration-200">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                <h3 class="text-xl font-bold" x-text="productModal.editId ? 'Edit Produk' : 'Tambah Produk Baru'"></h3>
+                <button @click="productModal.show = false" class="text-slate-400"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="p-8 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Nama Produk</label>
+                    <input type="text" x-model="productModal.form.name" class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Harga Modal (HPP)</label>
+                        <input type="number" x-model.number="productModal.form.costPrice" class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Rp">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Harga Jual</label>
+                        <input type="number" x-model.number="productModal.form.price" class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Rp">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Stok Saat Ini</label>
+                    <input type="number" x-model.number="productModal.form.stock" class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">URL Foto (Opsional)</label>
+                    <input type="text" x-model="productModal.form.image" class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500" placeholder="https://...">
+                </div>
+                <button @click="saveProduct" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 active:scale-95 transition-transform">
+                    Simpan Produk
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Payment Gateway Checkout -->
+    <div x-show="checkoutModal.show" x-cloak class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-md"></div>
+        
+        <!-- Step 1: Selection -->
+        <div x-show="checkoutModal.step === 'selection'" class="relative bg-white w-full max-w-xl rounded-[40px] overflow-hidden shadow-2xl">
+            <div class="p-8 pb-4 flex justify-between items-center">
+                <h3 class="text-2xl font-black italic tracking-tighter text-indigo-600">KASIR INDO PAY</h3>
+                <button @click="checkoutModal.show = false" class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <div class="px-8 py-4">
+                <div class="bg-indigo-50 p-6 rounded-3xl mb-8 flex justify-between items-center">
+                    <div>
+                        <p class="text-indigo-600 text-sm font-bold">TOTAL TAGIHAN</p>
+                        <h2 class="text-3xl font-black text-indigo-900" x-text="formatIDR(cartTotal)"></h2>
+                    </div>
+                    <i class="fas fa-shield-halved text-4xl text-indigo-200"></i>
+                </div>
+
+                <p class="font-bold text-slate-800 mb-4">Metode Pembayaran</p>
+                <div class="grid grid-cols-2 gap-4">
+                    <template x-for="method in paymentMethods" :key="method.name">
+                        <button @click="selectPaymentMethod(method.name)" class="p-4 border border-slate-100 rounded-2xl hover:border-indigo-500 hover:bg-indigo-50 transition-all flex items-center gap-3 active:scale-95 group">
+                            <div class="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-xl" :class="method.color">
+                                <i :class="method.icon"></i>
+                            </div>
+                            <div class="text-left">
+                                <span class="block font-bold text-sm text-slate-800" x-text="method.name"></span>
+                                <span class="block text-[10px] text-slate-400" x-text="method.name === 'Tunai' ? 'Bayar di Kasir' : 'Instan & Aman'"></span>
+                            </div>
+                        </button>
+                    </template>
+                </div>
+            </div>
+
+            <div class="p-8 text-center text-[10px] text-slate-400 uppercase tracking-widest font-bold">
+                Secured by Kasir Indo Gateway
+            </div>
+        </div>
+
+        <!-- Step: Cash Input -->
+        <div x-show="checkoutModal.step === 'cash_input'" class="relative bg-white w-full max-w-md rounded-[40px] p-8 shadow-2xl overflow-hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-black text-slate-800">Pembayaran Tunai</h3>
+                <button @click="checkoutModal.step = 'selection'" class="text-slate-400 hover:text-slate-600"><i class="fas fa-arrow-left"></i> Kembali</button>
+            </div>
+            
+            <div class="space-y-6">
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Tagihan</p>
+                    <p class="text-2xl font-black text-slate-900" x-text="formatIDR(cartTotal)"></p>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Uang Diterima (Rp)</label>
+                    <input type="number" x-model.number="checkoutModal.cashReceived" @input="calculateChange" autofocus
+                           class="w-full px-6 py-4 rounded-2xl bg-indigo-50 border-2 border-indigo-100 outline-none focus:border-indigo-500 text-2xl font-black text-indigo-600 transition-all"
+                           placeholder="0">
+                </div>
+
+                <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-100" x-show="checkoutModal.cashReceived >= cartTotal">
+                    <p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Kembalian</p>
+                    <p class="text-2xl font-black text-emerald-700" x-text="formatIDR(checkoutModal.change)"></p>
+                </div>
+
+                <button @click="processPayment('Tunai')" :disabled="checkoutModal.cashReceived < cartTotal"
+                        class="w-full py-5 bg-indigo-600 text-white rounded-[24px] font-black text-sm uppercase tracking-widest shadow-xl shadow-indigo-200 disabled:opacity-50 active:scale-95 transition-all">
+                    Konfirmasi Pembayaran
+                </button>
+            </div>
+            <div class="mt-8 text-center text-[10px] text-slate-400 uppercase tracking-widest font-bold">
+                Secured by Kasir Indo Gateway
+            </div>
+        </div>
+
+        <!-- Step 2: Processing -->
+        <div x-show="checkoutModal.step === 'processing'" class="relative bg-white w-full max-w-sm rounded-[40px] p-10 text-center shadow-2xl">
+            <div class="mb-8">
+                <div class="inline-block relative">
+                    <div class="w-24 h-24 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                    <i class="fas fa-credit-card absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl text-indigo-600"></i>
+                </div>
+            </div>
+            <h3 class="text-2xl font-bold text-slate-800 mb-2">Sedang Diproses</h3>
+            <p class="text-slate-500 text-sm leading-relaxed">Mohon menunggu sebentar, sedang mengamankan hasil transaksi ini...</p>
+            <div class="mt-8 pt-8 border-t border-slate-100">
+                <p class="text-[10px] text-slate-400 uppercase font-bold tracking-widest">Metode: <span x-text="checkoutModal.method" class="text-indigo-600"></span></p>
+            </div>
+        </div>
+
+        <!-- Step 3: Success -->
+        <div x-show="checkoutModal.step === 'success'" class="relative bg-white w-full max-w-sm rounded-[40px] p-10 text-center shadow-2xl">
+            <div class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                <i class="fas fa-check text-3xl"></i>
+            </div>
+            <h3 class="text-2xl font-bold text-slate-800 mb-2">Berhasil!</h3>
+            <p class="text-slate-500 text-sm mb-8">Transaksi telah selesai. Stok barang telah diperbarui secara otomatis.</p>
+            <button @click="checkoutModal.show = false; activeTab = 'history'" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold active:scale-95 transition-transform">
+                Lihat Struk
+            </button>
+        </div>
+    </div>
+
+    <!-- NOTIFICATION -->
+    <div x-show="notif.show" x-transition x-cloak class="fixed top-6 right-6 z-[100] bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-xl flex items-center gap-3">
+        <i class="fas fa-circle-check text-emerald-400"></i>
+        <span x-text="notif.message" class="font-medium text-sm"></span>
+    </div>
+
+    <!-- RECEIPT TEMPLATE (Hidden from UI, visible for print) -->
+    <div id="receipt-print" class="hidden print:block bg-white text-slate-900">
+        <template x-if="selectedTrx">
+            <div class="p-2 font-mono text-[11px] leading-tight">
+                <div class="text-center mb-4">
+                    <template x-if="settings.storeLogo">
+                        <img :src="settings.storeLogo" class="w-16 h-16 mx-auto mb-2 rounded-full object-cover border border-slate-100">
+                    </template>
+                    <h2 class="text-lg font-bold tracking-tighter uppercase" x-text="settings.storeName"></h2>
+                    <p class="text-[9px] whitespace-pre-line" x-text="settings.storeAddress"></p>
+                    <p class="text-[9px]" x-text="'Telp: ' + settings.storePhone"></p>
+                </div>
+
+                <div class="border-b border-dashed border-slate-400 my-2"></div>
+                
+                <div class="flex justify-between text-[10px]">
+                    <span x-text="'ID: ' + selectedTrx.id"></span>
+                </div>
+                <div class="flex justify-between text-[10px] mb-2">
+                    <span x-text="formatDate(selectedTrx.date)"></span>
+                    <span x-text="'Kasir: ' + currentUser.username"></span>
+                </div>
+
+                <div class="border-b border-dashed border-slate-400 my-2"></div>
+
+                <table class="w-full mb-2">
+                    <thead>
+                        <tr class="text-left border-b border-slate-100">
+                            <th class="pb-1">Item</th>
+                            <th class="pb-1 text-right">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="item in selectedTrx.items">
+                            <tr>
+                                <td class="pt-2">
+                                    <div class="font-bold" x-text="item.name"></div>
+                                    <div class="text-[10px]" x-text="item.qty + ' x ' + formatIDR(item.price)"></div>
+                                </td>
+                                <td class="text-right pt-2 align-bottom" x-text="formatIDR(item.qty * item.price)"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+
+                <div class="border-b border-dashed border-slate-400 my-2"></div>
+
+                <div class="space-y-1">
+                    <div class="flex justify-between">
+                        <span>Total Belanja</span>
+                        <span x-text="formatIDR(selectedTrx.total)"></span>
+                    </div>
+                    <div class="flex justify-between font-bold text-sm pt-1">
+                        <span>TOTAL AKHIR</span>
+                        <span x-text="formatIDR(selectedTrx.total)"></span>
+                    </div>
+                    <template x-if="selectedTrx.method === 'Tunai'">
+                        <div class="space-y-1 mt-1 pt-1 border-t border-slate-50">
+                            <div class="flex justify-between text-[10px]">
+                                <span>Bayar (Tunai)</span>
+                                <span x-text="formatIDR(selectedTrx.cashReceived || 0)"></span>
+                            </div>
+                            <div class="flex justify-between text-[10px]">
+                                <span>Kembali</span>
+                                <span x-text="formatIDR(selectedTrx.change || 0)"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <div class="border-b border-dashed border-slate-400 my-2"></div>
+
+                <div class="text-center mt-4">
+                    <p class="font-bold">METODE PEMBAYARAN</p>
+                    <p class="text-sm" x-text="selectedTrx.method"></p>
+                    <p class="mt-4 text-[10px] italic font-bold" x-text="settings.receiptFooter"></p>
+                    <p class="mt-2 text-[8px] uppercase tracking-tighter">--- Terima Kasih ---</p>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <script>
+        function posApp() {
+            return {
+                isLoggedIn: false,
+                authMode: 'login',
+                currentUser: null,
+                authForm: { username: '', password: '' },
+                activeTab: 'pos',
+                searchQuery: '',
+                inventorySearch: '',
+                mobileCartOpen: false,
+                
+                // Data
+                users: JSON.parse(localStorage.getItem('ki_users')) || [{username: 'admin', password: 'admin'}],
+                products: JSON.parse(localStorage.getItem('ki_products')) || [
+                    {id: 1, name: 'Kopi Kenangan', costPrice: 15000, price: 25000, stock: 50, image: 'https://drive.google.com/file/d/1x0ZfYdTJ2U81MODEaLamrtArqumwBbRs/view?usp=sharing?auto=format&fit=crop&q=60'},
+                    {id: 2, name: 'Nasi Goreng Spesial', costPrice: 20000, price: 35000, stock: 12, image: 'https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=400&auto=format&fit=crop&q=60'},
+                    {id: 3, name: 'Es Teh Manis', costPrice: 1500, price: 5000, stock: 100, image: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&auto=format&fit=crop&q=60'},
+                    {id: 4, name: 'Ayam Bakar Madu', costPrice: 25000, price: 42000, stock: 8, image: 'https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?w=400&auto=format&fit=crop&q=60'}
+                ],
+                cart: [],
+                history: JSON.parse(localStorage.getItem('ki_history')) || [],
+                analytics: { revenue: 0, grossProfit: 0, netProfit: 0, topProducts: [] },
+                selectedTrx: null,
+                
+                // Settings Data
+                settings: JSON.parse(localStorage.getItem('ki_settings')) || {
+                    storeName: 'KASIR INDO',
+                    ownerName: '',
+                    storeAddress: 'Jl. Digital Inovasi No. 88\nJakarta, Indonesia',
+                    storePhone: '0812-3456-7890',
+                    storeLogo: '',
+                    receiptFooter: 'Terima Kasih, Selamat Belanja Kembali!'
+                },
+
+                menuItems: [
+                    { id: 'pos', label: 'Kasir', icon: 'fas fa-cash-register' },
+                    { id: 'inventory', label: 'Produk', icon: 'fas fa-boxes-stacked' },
+                    { id: 'analytics', label: 'Analisis', icon: 'fas fa-chart-pie' },
+                    { id: 'history', label: 'Riwayat', icon: 'fas fa-history' }
+                ],
+
+                paymentMethods: [
+                    { name: 'Tunai', icon: 'fas fa-money-bill-wave', color: 'text-emerald-600' },
+                    { name: 'DANA', icon: 'fas fa-wallet', color: 'text-blue-500' },
+                    { name: 'GoPay', icon: 'fas fa-mobile-screen', color: 'text-emerald-500' },
+                    { name: 'OVO', icon: 'fas fa-coins', color: 'text-purple-600' },
+                    { name: 'Transfer BCA', icon: 'fas fa-university', color: 'text-blue-800' },
+                    { name: 'Transfer BRI', icon: 'fas fa-university', color: 'text-blue-600' },
+                    { name: 'Transfer BNI', icon: 'fas fa-university', color: 'text-orange-600' },
+                    { name: 'Mandiri', icon: 'fas fa-university', color: 'text-yellow-600' }
+                ],
+
+                notif: { show: false, message: '' },
+                
+                productModal: {
+                    show: false,
+                    editId: null,
+                    form: { name: '', price: 0, stock: 0, image: '' }
+                },
+
+                checkoutModal: {
+                    show: false,
+                    step: 'selection',
+                    method: '',
+                    cashReceived: 0,
+                    change: 0
+                },
+
+                // --- Auth Logic ---
+                handleAuth() {
+                    const { username, password } = this.authForm;
+                    if (!username || !password) return alert('Lengkapi data!');
+
+                    if (this.authMode === 'login') {
+                        const user = this.users.find(u => u.username === username && u.password === password);
+                        if (user) {
+                            this.currentUser = user;
+                            this.isLoggedIn = true;
+                            this.showNotif('Login Berhasil!');
+                        } else {
+                            alert('Username atau Password salah!');
+                        }
+                    } else {
+                        if (this.users.some(u => u.username === username)) return alert('Username sudah dipakai!');
+                        const newUser = { username, password };
+                        this.users.push(newUser);
+                        localStorage.setItem('ki_users', JSON.stringify(this.users));
+                        this.authMode = 'login';
+                        this.showNotif('Berhasil Daftar! Silakan Login');
+                    }
+                },
+
+                logout() {
+                    this.isLoggedIn = false;
+                    this.currentUser = null;
+                },
+
+                init() {
+                    this.updateAnalytics();
+                },
+
+                // --- Product Logic ---
+                get filteredProducts() {
+                    if (!this.searchQuery) return this.products;
+                    return this.products.filter(p => p.name.toLowerCase().includes(this.searchQuery.toLowerCase()));
+                },
+
+                get filteredInventory() {
+                    if (!this.inventorySearch) return this.products;
+                    return this.products.filter(p => p.name.toLowerCase().includes(this.inventorySearch.toLowerCase()));
+                },
+
+                quickUpdateStock(id, delta) {
+                    const index = this.products.findIndex(p => p.id === id);
+                    if (index > -1) {
+                        const newStock = this.products[index].stock + delta;
+                        if (newStock >= 0) {
+                            this.products[index].stock = newStock;
+                            this.saveProducts();
+                            this.showNotif('Stok diperbarui');
+                        }
+                    }
+                },
+
+                openProductModal(product = null) {
+                    if (!product) {
+                        const pw = prompt('KEAMANAN INVENTARIS\nMasukkan Kode Otorisasi untuk menambah barang baru:');
+                        if (pw !== 'Izin gudang') {
+                            if (pw !== null) alert('AKSES DITOLAK: Kode otorisasi salah.');
+                            return;
+                        }
+                    }
+                    
+                    if (product) {
+                        this.productModal.editId = product.id;
+                        this.productModal.form = { ...product };
+                    } else {
+                        this.productModal.editId = null;
+                        this.productModal.form = { name: '', costPrice: 0, price: 0, stock: 0, image: '' };
+                    }
+                    this.productModal.show = true;
+                },
+
+                saveProduct() {
+                    const form = this.productModal.form;
+                    if (!form.name || form.price <= 0) return alert('Data tidak valid');
+
+                    if (this.productModal.editId) {
+                        const index = this.products.findIndex(p => p.id === this.productModal.editId);
+                        this.products[index] = { ...form, id: this.productModal.editId };
+                    } else {
+                        const newProduct = { ...form, id: Date.now() };
+                        this.products.push(newProduct);
+                    }
+
+                    this.saveProducts();
+                    this.productModal.show = false;
+                    this.showNotif('Produk Berhasil Disimpan');
+                },
+
+                deleteProduct(id) {
+                    if (confirm('Hapus produk ini?')) {
+                        this.products = this.products.filter(p => p.id !== id);
+                        this.saveProducts();
+                    }
+                },
+
+                saveProducts() {
+                    localStorage.setItem('ki_products', JSON.stringify(this.products));
+                },
+
+                saveSettings() {
+                    localStorage.setItem('ki_settings', JSON.stringify(this.settings));
+                    this.showNotif('Pengaturan Berhasil Disimpan');
+                },
+
+                // --- POS Logic ---
+                addToCart(product) {
+                    if (product.stock <= 0) return alert('Stok Habis!');
+                    const index = this.cart.findIndex(item => item.id === product.id);
+                    if (index > -1) {
+                        if (this.cart[index].qty < product.stock) {
+                            this.cart[index].qty++;
+                        } else {
+                            alert('Melebihi stok yang tersedia!');
+                        }
+                    } else {
+                        this.cart.push({ ...product, qty: 1 });
+                    }
+                },
+
+                removeFromCart(index) {
+                    this.cart.splice(index, 1);
+                },
+
+                updateCartQty(index, delta) {
+                    const item = this.cart[index];
+                    const product = this.products.find(p => p.id === item.id);
+                    const newQty = item.qty + delta;
+                    
+                    if (newQty > 0 && newQty <= product.stock) {
+                        item.qty = newQty;
+                    } else if (newQty === 0) {
+                        this.removeFromCart(index);
+                    }
+                },
+
+                get cartTotal() {
+                    return this.cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+                },
+
+                // --- Checkout & Payment Logic ---
+                openCheckout() {
+                    this.checkoutModal.step = 'selection';
+                    this.checkoutModal.method = '';
+                    this.checkoutModal.cashReceived = 0;
+                    this.checkoutModal.change = 0;
+                    this.checkoutModal.show = true;
+                },
+
+                selectPaymentMethod(method) {
+                    if (method === 'Tunai') {
+                        this.checkoutModal.method = 'Tunai';
+                        this.checkoutModal.step = 'cash_input';
+                    } else {
+                        this.processPayment(method);
+                    }
+                },
+
+                calculateChange() {
+                    this.checkoutModal.change = Math.max(0, this.checkoutModal.cashReceived - this.cartTotal);
+                },
+
+                processPayment(method) {
+                    this.checkoutModal.method = method;
+                    this.checkoutModal.step = 'processing';
+                    
+                    // Simulate Gateway Delay
+                    setTimeout(() => {
+                        this.completeTransaction();
+                    }, 3000);
+                },
+
+                completeTransaction() {
+                    const transaction = {
+                        id: 'TRX-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+                        date: new Date().toISOString(),
+                        items: this.cart.map(i => ({ 
+                            name: i.name, 
+                            qty: i.qty, 
+                            price: i.price, 
+                            costPrice: i.costPrice || 0 
+                        })),
+                        total: this.cartTotal,
+                        method: this.checkoutModal.method,
+                        cashReceived: this.checkoutModal.method === 'Tunai' ? this.checkoutModal.cashReceived : null,
+                        change: this.checkoutModal.method === 'Tunai' ? this.checkoutModal.change : null
+                    };
+
+                    // Update Stocks Real-time
+                    this.cart.forEach(cartItem => {
+                        const pIndex = this.products.findIndex(p => p.id === cartItem.id);
+                        if (pIndex > -1) {
+                            this.products[pIndex].stock -= cartItem.qty;
+                        }
+                    });
+
+                    this.history.unshift(transaction);
+                    this.saveProducts();
+                    localStorage.setItem('ki_history', JSON.stringify(this.history));
+                    this.updateAnalytics();
+                    
+                    this.cart = [];
+                    this.checkoutModal.step = 'success';
+                },
+
+                // --- Analytics Logic ---
+                updateAnalytics() {
+                    let revenue = 0;
+                    let grossProfit = 0;
+                    let productCounts = {};
+
+                    this.history.forEach(trx => {
+                        revenue += trx.total;
+                        trx.items.forEach(item => {
+                            grossProfit += (item.price - (item.costPrice || 0)) * item.qty;
+                            productCounts[item.name] = (productCounts[item.name] || 0) + item.qty;
+                        });
+                    });
+
+                    const topProducts = Object.entries(productCounts)
+                        .map(([name, totalQty]) => ({ name, totalQty }))
+                        .sort((a, b) => b.totalQty - a.totalQty)
+                        .slice(0, 5);
+
+                    this.analytics = {
+                        revenue,
+                        grossProfit,
+                        netProfit: grossProfit * 0.9,
+                        topProducts
+                    };
+                },
+
+                printReceipt(trx) {
+                    this.selectedTrx = trx;
+                    setTimeout(() => {
+                        window.print();
+                    }, 500);
+                },
+
+                // --- History Security ---
+                confirmClearHistory() {
+                    const pw = prompt('PERINGATAN: Tindakan ini akan menghapus seluruh data penjualan selamanya.\n\nMasukkan Kode Otorisasi untuk melanjutkan:');
+                    if (pw === 'Sapu bersih') {
+                        this.history = [];
+                        localStorage.setItem('ki_history', JSON.stringify(this.history));
+                        this.updateAnalytics();
+                        this.showNotif('Database Riwayat Telah Dikosongkan');
+                    } else if (pw !== null) {
+                        alert('KODE SALAH: Anda tidak memiliki otoritas untuk menghapus riwayat transaksi.');
+                    }
+                },
+
+                // --- Helpers ---
+                // Cached Formatter for performance
+                idrFormatter: new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }),
+                
+                formatIDR(num) {
+                    return this.idrFormatter.format(num || 0);
+                },
+
+                formatDate(iso) {
+                    if(!iso) return '-';
+                    return new Date(iso).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+                },
+
+                showNotif(msg) {
+                    this.notif.message = msg;
+                    this.notif.show = true;
+                    setTimeout(() => this.notif.show = false, 3000);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
